@@ -10,7 +10,18 @@
 *.crx
 *.zip
 
-# Development files (optional - keeping for now)
-# generate-icons.html
-# popup.html
-# popup.js
+# Development/legacy files
+generate-icons.html
+popup.html
+popup.js
+
+# Editor/IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
+npm-debug.log*
