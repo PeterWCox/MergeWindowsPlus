@@ -10,7 +10,12 @@ const SOCIAL_MEDIA_DOMAINS = [
   'reddit.com',
   'linkedin.com',
   'pinterest.com',
-  'snapchat.com'
+  'snapchat.com',
+  'news.google.com',
+  'gmail.com',
+  'mail.google.com',
+  'bbc.com',
+  'bbc.co.uk'
 ];
 
 function getDomain(url) {
@@ -34,6 +39,20 @@ function isLocalhost(url) {
   }
 }
 
+function isLocalhost3000(url) {
+  try {
+    const urlObj = new URL(url);
+    return (urlObj.hostname === 'localhost' && urlObj.port === '3000') ||
+           (urlObj.hostname === '127.0.0.1' && urlObj.port === '3000') ||
+           urlObj.hostname === 'localhost:3000' ||
+           urlObj.hostname === '127.0.0.1:3000' ||
+           url.includes('localhost:3000') ||
+           url.includes('127.0.0.1:3000');
+  } catch (e) {
+    return false;
+  }
+}
+
 function isSocialMedia(url) {
   const domain = getDomain(url);
   return SOCIAL_MEDIA_DOMAINS.some(socialDomain => 
@@ -46,14 +65,7 @@ async function mergeWindows() {
     // Get all windows
     const windows = await chrome.windows.getAll({ populate: true });
     
-    if (windows.length <= 1) {
-      // Show notification if only one window
-      chrome.notifications.create({
-        type: 'basic',
-        iconUrl: 'icons/icon48.png',
-        title: 'Merge Windows Plus',
-        message: 'Only one window open. Nothing to merge.'
-      });
+    if (windows.length === 0) {
       return;
     }
 
@@ -69,62 +81,57 @@ async function mergeWindows() {
     let movedCount = 0;
     let closedCount = 0;
     
-    // First pass: process main window tabs
+    // Process ALL windows - close social media tabs in every window (including main)
     for (const window of windows) {
-      if (window.id === mainWindowId && window.tabs) {
-        for (const tab of window.tabs) {
-          if (!tab.url || !tab.url.startsWith('http')) continue;
-          
-          const normalizedUrl = tab.url.split('#')[0].split('?')[0];
-          
-          if (isSocialMedia(tab.url)) {
-            tabsToClose.push(tab.id);
-          } else if (isLocalhost(tab.url)) {
-            if (!seenUrls.has(normalizedUrl)) {
-              seenUrls.add(normalizedUrl);
-              localhostTabs.push(tab);
-            } else {
-              tabsToClose.push(tab.id);
-            }
-          } else {
-            if (seenUrls.has(normalizedUrl)) {
-              tabsToClose.push(tab.id);
-            } else {
-              seenUrls.add(normalizedUrl);
-            }
-          }
+      if (!window.tabs) continue;
+      
+      for (const tab of window.tabs) {
+        if (!tab.url || !tab.url.startsWith('http')) continue;
+        
+        const normalizedUrl = tab.url.split('#')[0].split('?')[0];
+        
+        // ALWAYS close social media tabs in ALL windows (including main window)
+        if (isSocialMedia(tab.url)) {
+          tabsToClose.push(tab.id);
+          continue;
         }
-      }
-    }
-    
-    // Second pass: process tabs from other windows
-    for (const window of windows) {
-      if (window.id !== mainWindowId && window.tabs) {
-        for (const tab of window.tabs) {
-          if (!tab.url || !tab.url.startsWith('http')) continue;
-          
-          const normalizedUrl = tab.url.split('#')[0].split('?')[0];
-          
-          if (isSocialMedia(tab.url)) {
-            tabsToClose.push(tab.id);
-          } else if (isLocalhost(tab.url)) {
-            if (!seenUrls.has(normalizedUrl)) {
-              seenUrls.add(normalizedUrl);
-              localhostTabs.push(tab);
-              // Only move if not already in main window
-              if (tab.windowId !== mainWindowId) {
-                tabsToMove.push(tab.id);
-              }
-            } else {
-              tabsToClose.push(tab.id);
-            }
-          } else {
-            if (seenUrls.has(normalizedUrl)) {
-              tabsToClose.push(tab.id);
-            } else {
-              seenUrls.add(normalizedUrl);
+        
+        // Close localhost:3000 tabs
+        if (isLocalhost3000(tab.url)) {
+          tabsToClose.push(tab.id);
+          continue;
+        }
+        
+        // Handle other localhost tabs
+        if (isLocalhost(tab.url)) {
+          if (!seenUrls.has(normalizedUrl)) {
+            seenUrls.add(normalizedUrl);
+            localhostTabs.push(tab);
+            // Only move if not already in main window
+            if (window.id !== mainWindowId) {
               tabsToMove.push(tab.id);
             }
+          } else {
+            tabsToClose.push(tab.id);
+          }
+          continue;
+        }
+        
+        // Handle regular tabs - check for duplicates
+        if (window.id === mainWindowId) {
+          // In main window, mark as seen
+          if (seenUrls.has(normalizedUrl)) {
+            tabsToClose.push(tab.id);
+          } else {
+            seenUrls.add(normalizedUrl);
+          }
+        } else {
+          // In other windows, check for duplicates
+          if (seenUrls.has(normalizedUrl)) {
+            tabsToClose.push(tab.id);
+          } else {
+            seenUrls.add(normalizedUrl);
+            tabsToMove.push(tab.id);
           }
         }
       }
@@ -151,33 +158,46 @@ async function mergeWindows() {
     }
 
     // Close empty windows (except main window)
-    // Get fresh list of windows after tab operations
-    const remainingWindows = await chrome.windows.getAll();
-    for (const window of remainingWindows) {
-      if (window.id !== mainWindowId) {
-        try {
-          // Check if window still exists and get its tabs
-          const tabs = await chrome.tabs.query({ windowId: window.id });
-          if (tabs.length === 0) {
-            // Window exists but is empty, remove it
-            await chrome.windows.remove(window.id);
-          }
-        } catch (error) {
-          // Ignore errors for windows that no longer exist (auto-closed by Chrome)
-          // Only log if it's a different type of error
-          if (!error.message || !error.message.includes('No window with id')) {
-            console.warn('Error checking/removing window:', error);
+    // Only if there are multiple windows
+    if (windows.length > 1) {
+      const remainingWindows = await chrome.windows.getAll();
+      for (const window of remainingWindows) {
+        if (window.id !== mainWindowId) {
+          try {
+            // Check if window still exists and get its tabs
+            const tabs = await chrome.tabs.query({ windowId: window.id });
+            if (tabs.length === 0) {
+              // Window exists but is empty, remove it
+              await chrome.windows.remove(window.id);
+            }
+          } catch (error) {
+            // Ignore errors for windows that no longer exist (auto-closed by Chrome)
+            // Only log if it's a different type of error
+            if (!error.message || !error.message.includes('No window with id')) {
+              console.warn('Error checking/removing window:', error);
+            }
           }
         }
       }
     }
     
     // Show notification
+    let message = '';
+    if (windows.length <= 1) {
+      if (closedCount > 0) {
+        message = `Closed ${closedCount} social media tab(s)`;
+      } else {
+        message = 'No social media tabs to close';
+      }
+    } else {
+      message = `Merged ${movedCount} tab(s), closed ${closedCount} tab(s)`;
+    }
+    
     chrome.notifications.create({
       type: 'basic',
       iconUrl: 'icons/icon48.png',
       title: 'Merge Windows Plus',
-      message: `Merged ${movedCount} tab(s), closed ${closedCount} tab(s)`
+      message: message
     });
     
   } catch (error) {

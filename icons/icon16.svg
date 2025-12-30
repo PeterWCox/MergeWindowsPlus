@@ -1,8 +1,6 @@
 <svg width="16" height="16" xmlns="http://www.w3.org/2000/svg">
-  <!-- Background circle -->
-  <circle cx="8" cy="8" r="7.5" fill="#32cd32" stroke="#28a428" stroke-width="0.5"/>
-  <!-- Overlapping squares - back square (solid) -->
-  <rect x="3" y="4" width="5" height="5" fill="#ffffff" opacity="0.9" rx="0.5"/>
-  <!-- Overlapping squares - front square (outline) -->
-  <rect x="6" y="7" width="5" height="5" fill="none" stroke="#ffffff" stroke-width="1.2" rx="0.5"/>
+  <!-- Overlapping squares - back square (solid lime green) -->
+  <rect x="3" y="4" width="5" height="5" fill="#32cd32" opacity="0.8" rx="0.5"/>
+  <!-- Overlapping squares - front square (outline lime green) -->
+  <rect x="6" y="7" width="5" height="5" fill="none" stroke="#32cd32" stroke-width="1.2" rx="0.5"/>
 </svg>
