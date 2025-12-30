@@ -1,5 +1,8 @@
 <svg width="48" height="48" xmlns="http://www.w3.org/2000/svg">
-  <circle cx="24" cy="24" r="22" fill="#4285f4" stroke="#3367d6" stroke-width="1"/>
-  <path d="M 24 8 L 24 24 L 32 32" stroke="white" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
-  <circle cx="24" cy="24" r="4" fill="white"/>
+  <!-- Background circle -->
+  <circle cx="24" cy="24" r="22" fill="#32cd32" stroke="#28a428" stroke-width="1"/>
+  <!-- Overlapping squares - back square (solid) -->
+  <rect x="9" y="12" width="15" height="15" fill="#ffffff" opacity="0.9" rx="1"/>
+  <!-- Overlapping squares - front square (outline) -->
+  <rect x="18" y="21" width="15" height="15" fill="none" stroke="#ffffff" stroke-width="2.5" rx="1"/>
 </svg>
